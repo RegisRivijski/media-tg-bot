@@ -1,0 +1,7 @@
+/package-lock.json
+/node_modules/
+/.idea/
+/coverage/
+*.log
+.env
+/tmp/

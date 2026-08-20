@@ -1,0 +1,23 @@
+{
+  "name": "media-tg-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot that downloads YouTube, TikTok and Instagram videos from chat links",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "lint": "eslint ."
+  },
+  "author": "Artur Petrov",
+  "license": "ISC",
+  "dependencies": {
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@babel/eslint-parser": "^7.19.1",
+    "@babel/plugin-syntax-import-assertions": "^7.20.0",
+    "eslint": "^8.26.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0"
+  }
+}
