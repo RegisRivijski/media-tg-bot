@@ -15,13 +15,19 @@ const ytdlpHelper = require('./ytdlpHelper');
 
 const EMPTY_KEYBOARD = { reply_markup: { inline_keyboard: [] } };
 
-function startUploadAction(ctx) {
+function startUploadAction(ctx, kind = 'video') {
+  const action = kind === 'audio' ? 'upload_audio' : 'upload_video';
   const tick = () => {
-    ctx.sendChatAction('upload_video').catch(() => {});
+    ctx.sendChatAction(action).catch(() => {});
   };
   tick();
   const timer = setInterval(tick, 4000);
   return () => clearInterval(timer);
+}
+
+function shouldAskQuality(session) {
+  return session.duration > AUTO_DOWNLOAD_MAX_DURATION_SEC
+    && (session.resolutions || []).length > 0;
 }
 
 function languageName(session) {
@@ -57,12 +63,13 @@ async function handleDownloadError(ctx, status, error, replyToMessageId) {
 }
 
 async function runDownload(ctx, status, session) {
+  const isAudio = session.mediaKind === 'audio';
   await sendHelper.editStatus(ctx, status, copy.downloadingText(session.title), EMPTY_KEYBOARD);
   const jobDir = path.join(
     DOWNLOAD_DIR,
     `${session.chatId}_${Date.now()}`,
   );
-  const stopAction = startUploadAction(ctx);
+  const stopAction = startUploadAction(ctx, isAudio ? 'audio' : 'video');
 
   try {
     const files = await ytdlpHelper.downloadMedia({
@@ -71,6 +78,7 @@ async function runDownload(ctx, status, session) {
       jobDir,
       height: session.resolution,
       language: session.language,
+      audio: isAudio,
     });
     if (!files.length) {
       await sendHelper.editStatus(ctx, status, copy.nothingFoundText(), EMPTY_KEYBOARD);
@@ -79,12 +87,16 @@ async function runDownload(ctx, status, session) {
 
     await sendHelper.deleteStatus(ctx, status);
     await sendHelper.sendFiles(ctx, files, {
-      caption: copy.captionText({
-        title: session.title,
-        platformLabel: session.platformLabel,
-        height: session.resolution,
-        languageLabelValue: languageName(session),
-      }),
+      caption: isAudio
+        ? undefined
+        : copy.captionText({
+          title: session.title,
+          platformLabel: session.platformLabel,
+          height: session.resolution,
+          languageLabelValue: languageName(session),
+        }),
+      audioTitle: isAudio ? (session.title || session.platformLabel) : undefined,
+      audioPerformer: isAudio ? session.platformLabel : undefined,
       replyToMessageId: session.replyToMessageId,
       duration: session.duration || undefined,
     });
@@ -153,8 +165,6 @@ async function processLink(ctx, link) {
   const resolution = formatHelper.defaultResolution(resolutions, DEFAULT_HEIGHT);
   const title = info.title || '';
   const askLanguage = languages.length > 1;
-  const askResolution = resolutions.length > 1
-    && duration > AUTO_DOWNLOAD_MAX_DURATION_SEC;
 
   const session = {
     url: link.url,
@@ -166,6 +176,7 @@ async function processLink(ctx, link) {
     resolutions,
     language,
     resolution,
+    mediaKind: 'video',
     chatId: ctx.chat.id,
     userId: ctx.from.id,
     replyToMessageId: ctx.message.message_id,
@@ -183,7 +194,7 @@ async function processLink(ctx, link) {
     return;
   }
 
-  if (askResolution) {
+  if (shouldAskQuality(session)) {
     const jobId = sessionHelper.createSession(session);
     await sendHelper.editStatus(
       ctx,
@@ -247,9 +258,7 @@ async function handleCallback(ctx) {
       return;
     }
     await ctx.answerCbQuery();
-    const shouldAskResolution = next.resolutions.length > 1
-      && next.duration > AUTO_DOWNLOAD_MAX_DURATION_SEC;
-    if (shouldAskResolution) {
+    if (shouldAskQuality(next)) {
       await ctx.editMessageText(
         copy.chooseResolutionText(next.title, languageName(next)),
         { ...copy.HTML, ...keyboardHelper.resolutionKeyboard(parsed.jobId, next.resolutions) },
@@ -261,7 +270,21 @@ async function handleCallback(ctx) {
   }
 
   if (parsed.action === 'r') {
-    const next = sessionHelper.updateSession(parsed.jobId, { resolution: Number(parsed.value) });
+    const next = sessionHelper.updateSession(parsed.jobId, {
+      resolution: Number(parsed.value),
+      mediaKind: 'video',
+    });
+    if (!next) {
+      await ctx.answerCbQuery(copy.expiredText());
+      return;
+    }
+    await ctx.answerCbQuery();
+    await finishDownloadFromCallback(ctx, parsed.jobId);
+    return;
+  }
+
+  if (parsed.action === 'a') {
+    const next = sessionHelper.updateSession(parsed.jobId, { mediaKind: 'audio' });
     if (!next) {
       await ctx.answerCbQuery(copy.expiredText());
       return;

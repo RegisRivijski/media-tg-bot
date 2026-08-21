@@ -11,7 +11,7 @@ const {
   PROBE_TIMEOUT_MS,
   YTDLP_BIN,
 } = require('../constants/download');
-const { buildFormatSelector } = require('./formatHelper');
+const { buildAudioFormatSelector, buildFormatSelector } = require('./formatHelper');
 
 function extraCookieArgs() {
   if (COOKIES_FILE && fs.existsSync(COOKIES_FILE)) {
@@ -96,12 +96,14 @@ async function probeMedia(url, platform) {
   return JSON.parse(trimmed);
 }
 
-function listDownloadedFiles(jobDir) {
+const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.ogg', '.opus', '.wav', '.aac']);
+
+function listDownloadedFiles(jobDir, { audioOnly } = {}) {
   if (!fs.existsSync(jobDir)) {
     return [];
   }
   const skipExt = new Set(['.part', '.ytdl', '.json', '.tmp']);
-  return fs.readdirSync(jobDir)
+  const files = fs.readdirSync(jobDir)
     .map((name) => path.join(jobDir, name))
     .filter((filePath) => {
       const stat = fs.statSync(filePath);
@@ -109,12 +111,22 @@ function listDownloadedFiles(jobDir) {
       return stat.isFile() && stat.size > 0 && !skipExt.has(ext);
     })
     .sort();
+  if (!audioOnly) {
+    return files;
+  }
+  const audio = files.filter((filePath) => AUDIO_EXTS.has(path.extname(filePath).toLowerCase()));
+  return audio.length ? audio : files;
 }
 
-async function downloadMedia({ url, platform, jobDir, height, language }) {
+async function downloadMedia({ url, platform, jobDir, height, language, audio }) {
   fs.mkdirSync(jobDir, { recursive: true });
   const output = path.join(jobDir, '%(id)s_%(autonumber)s.%(ext)s');
-  const format = buildFormatSelector({ height, language });
+  const format = audio
+    ? buildAudioFormatSelector(language)
+    : buildFormatSelector({ height, language });
+  const mediaArgs = audio
+    ? ['-x', '--audio-format', 'm4a', '--audio-quality', '0']
+    : ['--merge-output-format', 'mp4', '--remux-video', 'mp4'];
 
   await runYtDlp([
     '--quiet',
@@ -124,15 +136,14 @@ async function downloadMedia({ url, platform, jobDir, height, language }) {
     '--max-downloads', String(MAX_PLAYLIST_ITEMS),
     '--max-filesize', String(MAX_FILESIZE),
     ...extraRateArgs(),
-    '--merge-output-format', 'mp4',
-    '--remux-video', 'mp4',
+    ...mediaArgs,
     '-f', format,
     '-o', output,
     ...extraCookieArgs(),
     url,
   ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });
 
-  return listDownloadedFiles(jobDir);
+  return listDownloadedFiles(jobDir, { audioOnly: Boolean(audio) });
 }
 
 function removeDir(dirPath) {

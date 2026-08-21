@@ -17,35 +17,29 @@ function startText() {
   return [
     '<b>Brainrot Adapter</b>',
     '',
-    'Кинь ссылку на YouTube, Shorts, TikTok, Instagram или Reels — верну файлом в этот же чат.',
-    '',
-    'Если у ролика несколько озвучек или качеств, спрошу язык и разрешение.',
-    '',
-    'В группе бот должен видеть сообщения: BotFather → /setprivacy → Disable, либо сделай бота админом.',
+    'Кинь ссылку — адаптирую в файл.',
+    'YouTube · TikTok · Instagram',
   ].join('\n');
 }
 
 function helpText() {
   return [
-    '<b>Как пользоваться</b>',
-    '1. Пришли ссылку на видео или рилс.',
-    '2. Если спросить есть что — выбери язык озвучки и разрешение.',
-    '3. Бот ответит файлом на то же сообщение.',
+    '<b>Brainrot Adapter</b>',
     '',
-    'Площадки: YouTube / Shorts, TikTok, Instagram / Reels / пост.',
-    'Команды: /start, /help.',
+    'Кинь ссылку. Если надо — спрошу язык и качество.',
+    'Можно видео или аудио.',
   ].join('\n');
 }
 
 function lookingText() {
-  return 'Смотрю ссылку…';
+  return 'Адаптирую…';
 }
 
 function chooseLanguageText(title) {
   return [
     title ? `<b>${escapeHtml(title)}</b>` : '<b>Ролик</b>',
     '',
-    'На каком языке скинуть?',
+    'Язык',
   ].join('\n');
 }
 
@@ -55,21 +49,25 @@ function chooseResolutionText(title, languageLabelValue) {
     '',
   ];
   if (languageLabelValue) {
-    lines.push(`Озвучка: ${escapeHtml(languageLabelValue)}`);
+    lines.push(escapeHtml(languageLabelValue));
+  } else {
+    lines.push('Качество');
   }
-  lines.push('В каком разрешении скинуть?');
   return lines.join('\n');
 }
 
 function downloadingText(title) {
   return title
-    ? `Качаю: <b>${escapeHtml(title)}</b>`
-    : 'Качаю…';
+    ? `Адаптирую: <b>${escapeHtml(title)}</b>`
+    : 'Адаптирую…';
 }
 
-function captionText({ title, platformLabel, height, languageLabelValue }) {
-  const bits = [platformLabel, height ? `${height}p` : '', languageLabelValue]
-    .filter(Boolean);
+function captionText({ title, platformLabel, height, languageLabelValue, audio }) {
+  const bits = [
+    platformLabel,
+    audio ? 'аудио' : (height ? `${height}p` : ''),
+    languageLabelValue,
+  ].filter(Boolean);
   const lines = [];
   if (title) {
     lines.push(`<b>${escapeHtml(title)}</b>`);
@@ -81,47 +79,47 @@ function captionText({ title, platformLabel, height, languageLabelValue }) {
 }
 
 function liveStreamText() {
-  return 'Это прямой эфир, скачать нельзя. Пришли запись.';
+  return 'Это эфир. Нужна запись.';
 }
 
 function tooLongText() {
-  return 'Ролик слишком длинный. Пришли шортс, рилс или ролик покороче.';
+  return 'Слишком длинный.';
 }
 
 function tooLargeText() {
-  return 'Файл не влез в лимит Telegram. Выбери разрешение пониже.';
+  return 'Не влез. Возьми качество ниже или аудио.';
 }
 
 function busyText() {
-  return 'Уже качаю предыдущую ссылку из этого чата. Подожди немного.';
+  return 'Уже адаптирую другое.';
 }
 
 function notYourChoiceText() {
-  return 'Это не твоя ссылка — пусть выберет тот, кто её кинул.';
+  return 'Это не твоя ссылка.';
 }
 
 function expiredText() {
-  return 'Выбор устарел. Кинь ссылку ещё раз.';
+  return 'Протухло. Кинь ссылку ещё раз.';
 }
 
 function cancelledText() {
-  return 'Ок, не качаю.';
+  return 'Ок, без адаптации.';
 }
 
 function nothingFoundText() {
-  return 'По ссылке ничего не скачалось. Проверь, что ролик открывается без логина.';
+  return 'По ссылке пусто.';
 }
 
 function missingBinaryText() {
-  return 'На сервере нет yt-dlp. Поставь его и ffmpeg, потом кинь ссылку снова.';
+  return 'На сервере нет yt-dlp.';
 }
 
 function failedText() {
-  return 'Не получилось скачать. Ссылка могла протухнуть, ролик закрыт или площадка временно ломает загрузку.';
+  return 'Не скачалось. Ссылка закрыта или протухла.';
 }
 
 function unknownErrorText() {
-  return 'Что-то сломалось. Попробуй ещё раз через минуту.';
+  return 'Что-то сломалось. Попробуй позже.';
 }
 
 module.exports = {

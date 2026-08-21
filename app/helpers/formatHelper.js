@@ -130,6 +130,16 @@ function buildFormatSelector({ height, language }) {
   ].join('/');
 }
 
+function buildAudioFormatSelector(language) {
+  const lang = language ? `[language^=${language}]` : '';
+  return [
+    `ba${lang}[ext=m4a]`,
+    `ba${lang}`,
+    'ba',
+    'b',
+  ].join('/');
+}
+
 function isImageInfo(info) {
   const ext = String(info.ext || '').toLowerCase();
   if (IMAGE_EXTS.has(ext)) {
@@ -156,6 +166,7 @@ module.exports = {
   defaultLanguage,
   defaultResolution,
   buildFormatSelector,
+  buildAudioFormatSelector,
   isImageInfo,
   isLiveInfo,
   flattenEntries,

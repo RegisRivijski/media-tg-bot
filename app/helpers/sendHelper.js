@@ -5,7 +5,7 @@ const { HTML } = require('./copyHelper');
 
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm']);
-const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.ogg', '.opus', '.wav']);
+const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.ogg', '.opus', '.wav', '.aac']);
 
 function fileKind(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -25,16 +25,26 @@ function asInput(filePath) {
   return { source: fs.createReadStream(filePath) };
 }
 
-async function sendFiles(ctx, files, { caption, replyToMessageId, duration, width, height } = {}) {
+async function sendFiles(ctx, files, {
+  caption,
+  replyToMessageId,
+  duration,
+  width,
+  height,
+  audioTitle,
+  audioPerformer,
+} = {}) {
   if (!files.length) {
     return;
   }
 
   const extra = {
     ...HTML,
-    caption,
     reply_to_message_id: replyToMessageId,
   };
+  if (caption) {
+    extra.caption = caption;
+  }
 
   const visual = files.filter((filePath) => {
     const kind = fileKind(filePath);
@@ -64,7 +74,17 @@ async function sendFiles(ctx, files, { caption, replyToMessageId, duration, widt
       return;
     }
     if (kind === 'audio') {
-      await ctx.replyWithAudio(asInput(toSend[0]), extra);
+      try {
+        await ctx.replyWithAudio(asInput(toSend[0]), {
+          ...extra,
+          duration,
+          title: audioTitle,
+          performer: audioPerformer,
+        });
+      } catch (error) {
+        console.warn('[send] audio failed, sending as document', error.message);
+        await ctx.replyWithDocument(asInput(toSend[0]), extra);
+      }
       return;
     }
     await ctx.replyWithDocument(asInput(toSend[0]), extra);

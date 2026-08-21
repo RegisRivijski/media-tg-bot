@@ -22,6 +22,7 @@ function resolutionKeyboard(jobId, resolutions) {
     Markup.button.callback(`${height}p`, `r:${jobId}:${height}`)
   ));
   const rows = chunk(buttons, 2);
+  rows.push([Markup.button.callback('Аудио', `a:${jobId}`)]);
   rows.push([Markup.button.callback('Отмена', `x:${jobId}`)]);
   return Markup.inlineKeyboard(rows);
 }
