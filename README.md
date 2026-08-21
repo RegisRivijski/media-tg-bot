@@ -91,6 +91,8 @@ npm start
 | `TELEGRAM_BOT_API_PROTOCOL` | `http:` для локального Bot API |
 | `TELEGRAM_BOT_API_HOST` | хост локального API, например `172.17.0.1` |
 | `TELEGRAM_BOT_API_PORT` | порт, обычно `8081` |
+| `UMAMI_HOST` | origin Umami, например `http://umami:3000/umami` |
+| `UMAMI_WEBSITE_ID_MEDIA` | UUID сайта в Umami; без него аналитика молчит |
 
 Лимиты, скорость скачивания, качество, таймауты и путь к cookies — в `app/constants/download.js`. Instagram/YouTube без cookies часто не отдаются: Netscape `cookies.txt` в `~/apps/media-tg-bot-cookies/cookies.txt` (в контейнере это `/cookies/cookies.txt`).
 

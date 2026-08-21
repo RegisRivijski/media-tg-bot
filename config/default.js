@@ -19,4 +19,11 @@ module.exports = {
     host: process.env.TELEGRAM_BOT_API_HOST,
     port: process.env.TELEGRAM_BOT_API_PORT,
   },
+  analytics: {
+    umami: {
+      host: process.env.UMAMI_HOST,
+      websiteId: process.env.UMAMI_WEBSITE_ID_MEDIA,
+      hostname: 'brainrot-adapter',
+    },
+  },
 };

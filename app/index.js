@@ -27,6 +27,7 @@ function printStartupTable(apiRoot) {
     MaxFilesizeMb: Math.round(MAX_FILESIZE / (1024 * 1024)),
     LimitRateMBps: Math.round(LIMIT_RATE_BYTES / (1024 * 1024)),
     DefaultHeight: DEFAULT_HEIGHT,
+    Analytics: Boolean(config.analytics.umami.host && config.analytics.umami.websiteId),
   });
 }
 

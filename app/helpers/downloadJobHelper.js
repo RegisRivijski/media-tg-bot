@@ -12,6 +12,7 @@ const keyboardHelper = require('./keyboardHelper');
 const sendHelper = require('./sendHelper');
 const sessionHelper = require('./sessionHelper');
 const ytdlpHelper = require('./ytdlpHelper');
+const { EVENTS, track } = require('./analytics');
 
 const EMPTY_KEYBOARD = { reply_markup: { inline_keyboard: [] } };
 
@@ -35,6 +36,22 @@ function languageName(session) {
   return match ? match.label : '';
 }
 
+function downloadProps(session = {}, extra = {}) {
+  const props = {
+    platform: session.platform,
+    kind: session.mediaKind === 'audio' ? 'audio' : 'video',
+    duration: session.duration || 0,
+    ...extra,
+  };
+  if (props.kind !== 'audio' && session.resolution) {
+    props.height = session.resolution;
+  }
+  if (session.language) {
+    props.language = session.language;
+  }
+  return props;
+}
+
 function replyToOriginal(ctx, messageId) {
   return {
     ...copy.HTML,
@@ -42,9 +59,10 @@ function replyToOriginal(ctx, messageId) {
   };
 }
 
-async function handleDownloadError(ctx, status, error, replyToMessageId) {
+async function handleDownloadError(ctx, status, error, replyToMessageId, extra = {}) {
   const code = ytdlpHelper.classifyYtDlpError(error);
   console.error('[media]', error.code || error.message);
+  track(ctx, EVENTS.DOWNLOAD_FAIL, { ...extra, reason: extra.reason || code });
 
   let text = copy.failedText();
   if (code === 'YTDLP_MISSING') {
@@ -81,6 +99,7 @@ async function runDownload(ctx, status, session) {
       audio: isAudio,
     });
     if (!files.length) {
+      track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'empty' }));
       await sendHelper.editStatus(ctx, status, copy.nothingFoundText(), EMPTY_KEYBOARD);
       return;
     }
@@ -100,8 +119,9 @@ async function runDownload(ctx, status, session) {
       replyToMessageId: session.replyToMessageId,
       duration: session.duration || undefined,
     });
+    track(ctx, EVENTS.DOWNLOAD_OK, downloadProps(session));
   } catch (error) {
-    await handleDownloadError(ctx, status, error, session.replyToMessageId);
+    await handleDownloadError(ctx, status, error, session.replyToMessageId, downloadProps(session));
   } finally {
     stopAction();
     ytdlpHelper.removeDir(jobDir);
@@ -119,10 +139,12 @@ async function finishDownloadFromCallback(ctx, jobId) {
   const session = sessionHelper.getSession(jobId);
   sessionHelper.removeSession(jobId);
   if (!session) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, { reason: 'expired' });
     await ctx.editMessageText(copy.expiredText(), copy.HTML).catch(() => {});
     return;
   }
   if (sessionHelper.isChatBusy(session.chatId)) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'busy' }));
     await ctx.editMessageText(copy.busyText(), copy.HTML).catch(() => {});
     return;
   }
@@ -142,17 +164,21 @@ async function processLink(ctx, link) {
   try {
     info = await ytdlpHelper.probeMedia(link.url, link.platform);
   } catch (error) {
-    await handleDownloadError(ctx, status, error, ctx.message.message_id);
+    await handleDownloadError(ctx, status, error, ctx.message.message_id, {
+      platform: link.platform,
+    });
     return;
   }
 
   if (formatHelper.isLiveInfo(info)) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, { platform: link.platform, reason: 'live' });
     await sendHelper.editStatus(ctx, status, copy.liveStreamText());
     return;
   }
 
   const duration = Number(info.duration) || 0;
   if (duration > MAX_DURATION_SEC) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, { platform: link.platform, reason: 'too_long', duration });
     await sendHelper.editStatus(ctx, status, copy.tooLongText());
     return;
   }
@@ -211,6 +237,7 @@ async function processLink(ctx, link) {
 async function startFromMessage(ctx, links) {
   const chatId = ctx.chat.id;
   if (sessionHelper.isChatBusy(chatId)) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, { reason: 'busy' });
     await ctx.reply(copy.busyText(), replyToOriginal(ctx, ctx.message.message_id));
     return;
   }
@@ -231,6 +258,7 @@ async function handleCallback(ctx) {
 
   const session = sessionHelper.getSession(parsed.jobId);
   if (!session) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, { reason: 'expired' });
     await ctx.answerCbQuery(copy.expiredText());
     return;
   }
@@ -241,12 +269,14 @@ async function handleCallback(ctx) {
 
   if (parsed.action === 'x') {
     sessionHelper.removeSession(parsed.jobId);
+    track(ctx, EVENTS.CANCEL, downloadProps(session));
     await ctx.answerCbQuery();
     await ctx.editMessageText(copy.cancelledText(), copy.HTML).catch(() => {});
     return;
   }
 
   if (sessionHelper.isChatBusy(session.chatId)) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'busy' }));
     await ctx.answerCbQuery(copy.busyText(), { show_alert: true });
     return;
   }
@@ -254,6 +284,7 @@ async function handleCallback(ctx) {
   if (parsed.action === 'l') {
     const next = sessionHelper.updateSession(parsed.jobId, { language: parsed.value });
     if (!next) {
+      track(ctx, EVENTS.DOWNLOAD_FAIL, { reason: 'expired' });
       await ctx.answerCbQuery(copy.expiredText());
       return;
     }
@@ -275,6 +306,7 @@ async function handleCallback(ctx) {
       mediaKind: 'video',
     });
     if (!next) {
+      track(ctx, EVENTS.DOWNLOAD_FAIL, { reason: 'expired' });
       await ctx.answerCbQuery(copy.expiredText());
       return;
     }
@@ -286,6 +318,7 @@ async function handleCallback(ctx) {
   if (parsed.action === 'a') {
     const next = sessionHelper.updateSession(parsed.jobId, { mediaKind: 'audio' });
     if (!next) {
+      track(ctx, EVENTS.DOWNLOAD_FAIL, { reason: 'expired' });
       await ctx.answerCbQuery(copy.expiredText());
       return;
     }

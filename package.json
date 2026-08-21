@@ -11,7 +11,8 @@
   "author": "Artur Petrov",
   "license": "ISC",
   "dependencies": {
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "umami-server-tracker": "^2.0.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.19.1",
