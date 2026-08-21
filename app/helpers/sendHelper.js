@@ -5,7 +5,7 @@ const { HTML } = require('./copyHelper');
 const ffmpegHelper = require('./ffmpegHelper');
 
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
-const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm']);
+const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v']);
 const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.ogg', '.opus', '.wav', '.aac']);
 
 function fileKind(filePath) {
@@ -24,6 +24,14 @@ function fileKind(filePath) {
 
 function asInput(filePath) {
   return { source: fs.createReadStream(filePath) };
+}
+
+function chunk(items, size) {
+  const groups = [];
+  for (let i = 0; i < items.length; i += size) {
+    groups.push(items.slice(i, i + size));
+  }
+  return groups;
 }
 
 async function videoSendMeta(filePath, { duration, width, height } = {}) {
@@ -102,27 +110,30 @@ async function sendFiles(ctx, files, {
     return;
   }
 
-  const media = [];
-  for (const [index, filePath] of toSend.slice(0, 10).entries()) {
-    const kind = fileKind(filePath);
-    const item = {
-      type: kind === 'video' ? 'video' : 'photo',
-      media: asInput(filePath),
-    };
-    if (index === 0 && caption) {
-      item.caption = caption;
-      item.parse_mode = 'HTML';
+  const groups = chunk(toSend, 10);
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    const media = [];
+    for (const [index, filePath] of groups[groupIndex].entries()) {
+      const kind = fileKind(filePath);
+      const item = {
+        type: kind === 'video' ? 'video' : 'photo',
+        media: asInput(filePath),
+      };
+      if (groupIndex === 0 && index === 0 && caption) {
+        item.caption = caption;
+        item.parse_mode = 'HTML';
+      }
+      if (item.type === 'video') {
+        const videoExtra = await videoSendMeta(filePath);
+        Object.assign(item, videoExtra);
+      }
+      media.push(item);
     }
-    if (item.type === 'video') {
-      const videoExtra = await videoSendMeta(filePath);
-      Object.assign(item, videoExtra);
-    }
-    media.push(item);
-  }
 
-  await ctx.replyWithMediaGroup(media, {
-    reply_to_message_id: replyToMessageId,
-  });
+    await ctx.replyWithMediaGroup(media, {
+      reply_to_message_id: replyToMessageId,
+    });
+  }
 }
 
 async function editStatus(ctx, status, text, extra = {}) {

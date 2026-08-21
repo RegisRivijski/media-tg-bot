@@ -9,6 +9,8 @@ const {
 } = require('../constants/download');
 
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v']);
+const PHOTO_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.avif', '.bmp']);
+const PHOTO_CONVERT_EXTS = new Set(['.webp', '.heic', '.heif', '.avif', '.bmp']);
 const SAFE_PIX = new Set(['yuv420p', 'yuvj420p']);
 
 function run(bin, args, timeoutMs) {
@@ -233,10 +235,40 @@ async function ensureTelegramVideo(filePath) {
   }
 }
 
+async function ensureTelegramPhoto(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (!PHOTO_EXTS.has(ext) || !PHOTO_CONVERT_EXTS.has(ext)) {
+    return filePath;
+  }
+
+  const output = `${filePath.replace(/\.[^.]+$/, '')}.tg.jpg`;
+  try {
+    await run(FFMPEG_BIN, [
+      '-y',
+      '-i', filePath,
+      '-frames:v', '1',
+      '-q:v', '2',
+      output,
+    ], 20 * 1000);
+    return replaceOriginal(filePath, output);
+  } catch (error) {
+    console.warn('[ffmpeg] photo convert failed, sending original', error.message);
+    fs.rmSync(output, { force: true });
+    return filePath;
+  }
+}
+
 async function prepareVideos(files) {
   const next = [];
   for (const filePath of files) {
-    next.push(await ensureTelegramVideo(filePath));
+    const ext = path.extname(filePath).toLowerCase();
+    if (VIDEO_EXTS.has(ext)) {
+      next.push(await ensureTelegramVideo(filePath));
+    } else if (PHOTO_EXTS.has(ext)) {
+      next.push(await ensureTelegramPhoto(filePath));
+    } else {
+      next.push(filePath);
+    }
   }
   return next;
 }

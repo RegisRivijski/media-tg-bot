@@ -109,6 +109,10 @@ function listDownloadedFiles(jobDir, { audioOnly } = {}) {
     .filter((filePath) => {
       const stat = fs.statSync(filePath);
       const ext = path.extname(filePath).toLowerCase();
+      const name = path.basename(filePath).toLowerCase();
+      if (name.endsWith('.thumb.jpg')) {
+        return false;
+      }
       return stat.isFile() && stat.size > 0 && !skipExt.has(ext);
     })
     .sort();
@@ -119,31 +123,44 @@ function listDownloadedFiles(jobDir, { audioOnly } = {}) {
   return audio.length ? audio : files;
 }
 
-async function downloadMedia({ url, platform, jobDir, height, language, audio }) {
+async function downloadMedia({ url, platform, jobDir, height, language, audio, imagesOnly }) {
   fs.mkdirSync(jobDir, { recursive: true });
-  const output = path.join(jobDir, '%(id)s_%(autonumber)s.%(ext)s');
+  const output = path.join(jobDir, '%(autonumber)03d_%(id)s.%(ext)s');
   const format = audio
     ? buildAudioFormatSelector(language)
-    : buildFormatSelector({ height, language });
+    : (imagesOnly ? 'best' : buildFormatSelector({ height, language }));
   const mediaArgs = audio
     ? ['-x', '--audio-format', 'm4a', '--audio-quality', '0']
-    : ['--merge-output-format', 'mp4', '--remux-video', 'mp4',
-      '--postprocessor-args', 'ffmpeg:-movflags +faststart'];
+    : (imagesOnly
+      ? []
+      : ['--merge-output-format', 'mp4', '--remux-video', 'mp4',
+        '--postprocessor-args', 'ffmpeg:-movflags +faststart']);
 
-  await runYtDlp([
-    '--quiet',
-    '--no-warnings',
-    '--no-mtime',
-    playlistArg(platform),
-    '--max-downloads', String(MAX_PLAYLIST_ITEMS),
-    '--max-filesize', String(MAX_FILESIZE),
-    ...extraRateArgs(),
-    ...mediaArgs,
-    '-f', format,
-    '-o', output,
-    ...extraCookieArgs(),
-    url,
-  ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });
+  try {
+    await runYtDlp([
+      '--quiet',
+      '--no-warnings',
+      '--no-mtime',
+      '--ignore-errors',
+      playlistArg(platform),
+      '--max-downloads', String(MAX_PLAYLIST_ITEMS),
+      '--playlist-end', String(MAX_PLAYLIST_ITEMS),
+      '--max-filesize', String(MAX_FILESIZE),
+      ...extraRateArgs(),
+      ...mediaArgs,
+      '-f', format,
+      '-o', output,
+      ...extraCookieArgs(),
+      url,
+    ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });
+  } catch (error) {
+    const files = listDownloadedFiles(jobDir, { audioOnly: Boolean(audio) });
+    if (files.length) {
+      console.warn('[ytdlp] partial download', error.message);
+      return files;
+    }
+    throw error;
+  }
 
   return listDownloadedFiles(jobDir, { audioOnly: Boolean(audio) });
 }

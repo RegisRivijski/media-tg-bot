@@ -126,10 +126,12 @@ function buildFormatSelector({ height, language }) {
     `bv*[height<=${h}][vcodec*=avc]+ba${lang}`,
     `bv*[height<=${h}][ext=mp4]+ba${lang}`,
     `bv*[height<=${h}]+ba${lang}`,
-    `b[height<=${h}]${lang}`,
+    `b[height<=${h}][vcodec!=none]${lang}`,
     `bv*[height<=${h}]+ba`,
-    `b[height<=${h}]`,
-    'b',
+    `b[height<=${h}][vcodec!=none]`,
+    'b[vcodec!=none]',
+    'best[vcodec=none]',
+    'best',
   ].join('/');
 }
 
@@ -162,6 +164,22 @@ function flattenEntries(info) {
   return [info];
 }
 
+function maxDuration(info) {
+  return flattenEntries(info).reduce((max, entry) => {
+    const duration = Number(entry.duration) || 0;
+    return duration > max ? duration : max;
+  }, Number(info.duration) || 0);
+}
+
+function isAlbumInfo(info) {
+  return flattenEntries(info).length > 1;
+}
+
+function isImagesOnly(info) {
+  const entries = flattenEntries(info);
+  return Boolean(entries.length && entries.every((entry) => isImageInfo(entry)));
+}
+
 module.exports = {
   RESOLUTION_STEPS,
   collectLanguages,
@@ -173,4 +191,7 @@ module.exports = {
   isImageInfo,
   isLiveInfo,
   flattenEntries,
+  maxDuration,
+  isAlbumInfo,
+  isImagesOnly,
 };

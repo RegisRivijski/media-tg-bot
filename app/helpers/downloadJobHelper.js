@@ -18,7 +18,9 @@ const { EVENTS, track } = require('./analytics');
 const EMPTY_KEYBOARD = { reply_markup: { inline_keyboard: [] } };
 
 function startUploadAction(ctx, kind = 'video') {
-  const action = kind === 'audio' ? 'upload_audio' : 'upload_video';
+  const action = kind === 'audio'
+    ? 'upload_audio'
+    : (kind === 'photo' ? 'upload_photo' : 'upload_video');
   const tick = () => {
     ctx.sendChatAction(action).catch(() => {});
   };
@@ -28,6 +30,9 @@ function startUploadAction(ctx, kind = 'video') {
 }
 
 function shouldAskQuality(session) {
+  if (session.onlyImages || session.isAlbum) {
+    return false;
+  }
   return session.duration > AUTO_DOWNLOAD_MAX_DURATION_SEC
     && (session.resolutions || []).length > 0;
 }
@@ -40,10 +45,13 @@ function languageName(session) {
 function downloadProps(session = {}, extra = {}) {
   const props = {
     platform: session.platform,
-    kind: session.mediaKind === 'audio' ? 'audio' : 'video',
+    kind: session.mediaKind || 'video',
     duration: session.duration || 0,
     ...extra,
   };
+  if (session.items) {
+    props.items = session.items;
+  }
   if (props.kind !== 'audio' && session.resolution) {
     props.height = session.resolution;
   }
@@ -88,7 +96,10 @@ async function runDownload(ctx, status, session) {
     DOWNLOAD_DIR,
     `${session.chatId}_${Date.now()}`,
   );
-  const stopAction = startUploadAction(ctx, isAudio ? 'audio' : 'video');
+  const stopAction = startUploadAction(
+    ctx,
+    isAudio ? 'audio' : (session.onlyImages ? 'photo' : 'video'),
+  );
 
   try {
     const files = await ytdlpHelper.downloadMedia({
@@ -98,6 +109,7 @@ async function runDownload(ctx, status, session) {
       height: session.resolution,
       language: session.language,
       audio: isAudio,
+      imagesOnly: session.onlyImages,
     });
     if (!files.length) {
       track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'empty' }));
@@ -114,7 +126,7 @@ async function runDownload(ctx, status, session) {
         : copy.captionText({
           title: session.title,
           platformLabel: session.platformLabel,
-          height: session.resolution,
+          height: (session.onlyImages || session.isAlbum) ? undefined : session.resolution,
           languageLabelValue: languageName(session),
         }),
       audioTitle: isAudio ? (session.title || session.platformLabel) : undefined,
@@ -173,27 +185,37 @@ async function processLink(ctx, link) {
     return;
   }
 
-  if (formatHelper.isLiveInfo(info)) {
+  const entries = formatHelper.flattenEntries(info);
+  if (formatHelper.isLiveInfo(info) || entries.some((entry) => formatHelper.isLiveInfo(entry))) {
     track(ctx, EVENTS.DOWNLOAD_FAIL, { platform: link.platform, reason: 'live' });
     await sendHelper.editStatus(ctx, status, copy.liveStreamText());
     return;
   }
 
-  const duration = Number(info.duration) || 0;
+  const duration = formatHelper.maxDuration(info);
   if (duration > MAX_DURATION_SEC) {
     track(ctx, EVENTS.DOWNLOAD_FAIL, { platform: link.platform, reason: 'too_long', duration });
     await sendHelper.editStatus(ctx, status, copy.tooLongText());
     return;
   }
 
-  const entries = formatHelper.flattenEntries(info);
-  const onlyImages = entries.length && entries.every((entry) => formatHelper.isImageInfo(entry));
-  const languages = onlyImages ? [] : formatHelper.collectLanguages(info);
-  const resolutions = onlyImages ? [] : formatHelper.collectResolutions(info);
+  const isAlbum = formatHelper.isAlbumInfo(info);
+  const onlyImages = formatHelper.isImagesOnly(info);
+  const probeTarget = entries.length === 1 ? entries[0] : info;
+  const languages = (onlyImages || isAlbum) ? [] : formatHelper.collectLanguages(probeTarget);
+  const resolutions = (onlyImages || isAlbum) ? [] : formatHelper.collectResolutions(probeTarget);
   const language = formatHelper.defaultLanguage(languages, ctx.from?.language_code);
-  const resolution = formatHelper.defaultResolution(resolutions, DEFAULT_HEIGHT);
+  const resolution = onlyImages
+    ? undefined
+    : formatHelper.defaultResolution(resolutions, DEFAULT_HEIGHT);
   const title = info.title || '';
-  const askLanguage = languages.length > 1;
+  const askLanguage = !onlyImages && !isAlbum && languages.length > 1;
+  let mediaKind = 'video';
+  if (onlyImages) {
+    mediaKind = isAlbum ? 'album' : 'photo';
+  } else if (isAlbum) {
+    mediaKind = 'album';
+  }
 
   const session = {
     url: link.url,
@@ -205,7 +227,10 @@ async function processLink(ctx, link) {
     resolutions,
     language,
     resolution,
-    mediaKind: 'video',
+    mediaKind,
+    onlyImages,
+    isAlbum,
+    items: entries.length,
     chatId: ctx.chat.id,
     userId: ctx.from.id,
     replyToMessageId: ctx.message.message_id,
