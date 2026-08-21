@@ -4,6 +4,7 @@ const path = require('path');
 
 const {
   COOKIES_FILE,
+  DOWNLOAD_DIR,
   DOWNLOAD_TIMEOUT_MS,
   LIMIT_RATE_BYTES,
   MAX_FILESIZE,
@@ -150,6 +151,10 @@ function removeDir(dirPath) {
   fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
+function cleanupDownloadRoot() {
+  fs.rmSync(DOWNLOAD_DIR, { recursive: true, force: true });
+}
+
 function classifyYtDlpError(error) {
   const text = `${error.message || ''} ${error.stderr || ''}`.toLowerCase();
   if (error.code === 'YTDLP_MISSING') {
@@ -172,5 +177,6 @@ module.exports = {
   downloadMedia,
   listDownloadedFiles,
   removeDir,
+  cleanupDownloadRoot,
   classifyYtDlpError,
 };

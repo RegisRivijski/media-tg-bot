@@ -5,6 +5,7 @@ const { DEFAULT_HEIGHT, LIMIT_RATE_BYTES, MAX_FILESIZE, YTDLP_BIN } = require('.
 const errorsHandler = require('./middlewares/errorsHandler');
 const { registerRoutes } = require('./routes');
 const { registerBotCommands } = require('./helpers/telegramCommandsHelper');
+const { cleanupDownloadRoot } = require('./helpers/ytdlpHelper');
 
 function buildTelegramApiRoot() {
   if (!config.telegramBotApi.host || !config.telegramBotApi.port) {
@@ -31,6 +32,7 @@ function printStartupTable(apiRoot) {
 
 function listenForShutdown(bot) {
   const shutdown = (signal) => {
+    cleanupDownloadRoot();
     bot.stop(signal);
     process.exit(0);
   };
@@ -43,6 +45,8 @@ async function main() {
   if (!config.bot.apiToken) {
     throw new Error('MEDIA_TG_BOT_API_TOKEN is required');
   }
+
+  cleanupDownloadRoot();
 
   const apiRoot = buildTelegramApiRoot();
   const bot = createBot(apiRoot);
