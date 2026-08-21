@@ -1,0 +1,37 @@
+const os = require('os');
+const path = require('path');
+
+const YTDLP_BIN = 'yt-dlp';
+const DOWNLOAD_DIR = path.join(os.tmpdir(), 'media-tg-bot');
+const COOKIES_FILE = '/cookies/cookies.txt';
+
+const MAX_FILESIZE = 200 * 1024 * 1024;
+const LIMIT_RATE_BYTES = 10 * 1024 * 1024;
+const MAX_DURATION_SEC = 60 * 60;
+const MAX_LINKS_PER_MESSAGE = 1;
+const MAX_PLAYLIST_ITEMS = 10;
+
+const PROBE_TIMEOUT_MS = 45 * 1000;
+const DOWNLOAD_TIMEOUT_MS = 8 * 60 * 1000;
+const SESSION_TTL_MS = 10 * 60 * 1000;
+
+const DEFAULT_HEIGHT = 720;
+const AUTO_DOWNLOAD_MAX_DURATION_SEC = 90;
+const RESOLUTION_STEPS = [360, 480, 720, 1080];
+
+module.exports = {
+  YTDLP_BIN,
+  DOWNLOAD_DIR,
+  COOKIES_FILE,
+  MAX_FILESIZE,
+  LIMIT_RATE_BYTES,
+  MAX_DURATION_SEC,
+  MAX_LINKS_PER_MESSAGE,
+  MAX_PLAYLIST_ITEMS,
+  PROBE_TIMEOUT_MS,
+  DOWNLOAD_TIMEOUT_MS,
+  SESSION_TTL_MS,
+  DEFAULT_HEIGHT,
+  AUTO_DOWNLOAD_MAX_DURATION_SEC,
+  RESOLUTION_STEPS,
+};

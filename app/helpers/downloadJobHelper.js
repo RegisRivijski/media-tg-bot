@@ -1,6 +1,11 @@
 const path = require('path');
 
-const config = require('../../config/default');
+const {
+  AUTO_DOWNLOAD_MAX_DURATION_SEC,
+  DEFAULT_HEIGHT,
+  DOWNLOAD_DIR,
+  MAX_DURATION_SEC,
+} = require('../constants/download');
 const copy = require('./copyHelper');
 const formatHelper = require('./formatHelper');
 const keyboardHelper = require('./keyboardHelper');
@@ -54,7 +59,7 @@ async function handleDownloadError(ctx, status, error, replyToMessageId) {
 async function runDownload(ctx, status, session) {
   await sendHelper.editStatus(ctx, status, copy.downloadingText(session.title), EMPTY_KEYBOARD);
   const jobDir = path.join(
-    config.download.dir,
+    DOWNLOAD_DIR,
     `${session.chatId}_${Date.now()}`,
   );
   const stopAction = startUploadAction(ctx);
@@ -135,7 +140,7 @@ async function processLink(ctx, link) {
   }
 
   const duration = Number(info.duration) || 0;
-  if (duration > config.download.maxDurationSec) {
+  if (duration > MAX_DURATION_SEC) {
     await sendHelper.editStatus(ctx, status, copy.tooLongText());
     return;
   }
@@ -145,11 +150,11 @@ async function processLink(ctx, link) {
   const languages = onlyImages ? [] : formatHelper.collectLanguages(info);
   const resolutions = onlyImages ? [] : formatHelper.collectResolutions(info);
   const language = formatHelper.defaultLanguage(languages, ctx.from?.language_code);
-  const resolution = formatHelper.defaultResolution(resolutions, config.download.defaultHeight);
+  const resolution = formatHelper.defaultResolution(resolutions, DEFAULT_HEIGHT);
   const title = info.title || '';
   const askLanguage = languages.length > 1;
   const askResolution = resolutions.length > 1
-    && duration > config.download.autoDownloadMaxDurationSec;
+    && duration > AUTO_DOWNLOAD_MAX_DURATION_SEC;
 
   const session = {
     url: link.url,
@@ -243,7 +248,7 @@ async function handleCallback(ctx) {
     }
     await ctx.answerCbQuery();
     const shouldAskResolution = next.resolutions.length > 1
-      && next.duration > config.download.autoDownloadMaxDurationSec;
+      && next.duration > AUTO_DOWNLOAD_MAX_DURATION_SEC;
     if (shouldAskResolution) {
       await ctx.editMessageText(
         copy.chooseResolutionText(next.title, languageName(next)),

@@ -29,9 +29,9 @@ app/
   controllers/           # /start, /help, ссылки, callback-кнопки
   helpers/               # ссылки, yt-dlp, сессии, отправка, тексты
   middlewares/           # ошибки
-  constants/             # площадки и названия языков
+  constants/             # площадки, языки, лимиты загрузки
 config/
-  default.js             # конфиг из переменных окружения
+  default.js             # токен и локальный Bot API из окружения
 ```
 
 Как читать код:
@@ -91,14 +91,8 @@ npm start
 | `TELEGRAM_BOT_API_PROTOCOL` | `http:` для локального Bot API |
 | `TELEGRAM_BOT_API_HOST` | хост локального API, например `172.17.0.1` |
 | `TELEGRAM_BOT_API_PORT` | порт, обычно `8081` |
-| `MEDIA_TG_BOT_COOKIES_FILE` | `cookies.txt`, если Instagram/YouTube просят логин |
-| `MEDIA_TG_BOT_YTDLP_BIN` | путь к yt-dlp, если не в `PATH` |
-| `MEDIA_TG_BOT_DOWNLOAD_DIR` | каталог для временных файлов |
-| `MEDIA_TG_BOT_MAX_FILESIZE` | лимит байт, по умолчанию 50 МБ |
-| `MEDIA_TG_BOT_DEFAULT_HEIGHT` | качество по умолчанию, `720` |
-| `MEDIA_TG_BOT_AUTO_DURATION_SEC` | короче этого — не спрашивать разрешение, `90` |
 
-Instagram и часть YouTube без cookies часто не отдаются. Экспорт cookies из браузера в Netscape-формате и путь в `MEDIA_TG_BOT_COOKIES_FILE`.
+Лимиты, скорость скачивания, качество, таймауты и путь к cookies — в `app/constants/download.js`. Instagram/YouTube без cookies часто не отдаются: Netscape `cookies.txt` в `~/apps/media-tg-bot-cookies/cookies.txt` (в контейнере это `/cookies/cookies.txt`).
 
 ## Docker
 

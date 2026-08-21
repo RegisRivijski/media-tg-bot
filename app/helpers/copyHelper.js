@@ -15,9 +15,9 @@ function escapeHtml(value) {
 
 function startText() {
   return [
-    '<b>Медиа-бот</b>',
+    '<b>Brainrot Adapter</b>',
     '',
-    'Кинь в чат ссылку на YouTube, Shorts, TikTok, Instagram или Reels — скачаю и отвечу файлом.',
+    'Кинь ссылку на YouTube, Shorts, TikTok, Instagram или Reels — верну файлом в этот же чат.',
     '',
     'Если у ролика несколько озвучек или качеств, спрошу язык и разрешение.',
     '',

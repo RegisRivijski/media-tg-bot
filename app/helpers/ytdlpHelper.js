@@ -2,19 +2,34 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const config = require('../../config/default');
+const {
+  COOKIES_FILE,
+  DOWNLOAD_TIMEOUT_MS,
+  LIMIT_RATE_BYTES,
+  MAX_FILESIZE,
+  MAX_PLAYLIST_ITEMS,
+  PROBE_TIMEOUT_MS,
+  YTDLP_BIN,
+} = require('../constants/download');
 const { buildFormatSelector } = require('./formatHelper');
 
 function extraCookieArgs() {
-  if (config.download.cookiesFile && fs.existsSync(config.download.cookiesFile)) {
-    return ['--cookies', config.download.cookiesFile];
+  if (COOKIES_FILE && fs.existsSync(COOKIES_FILE)) {
+    return ['--cookies', COOKIES_FILE];
   }
   return [];
 }
 
+function extraRateArgs() {
+  if (!LIMIT_RATE_BYTES) {
+    return [];
+  }
+  return ['--limit-rate', String(LIMIT_RATE_BYTES)];
+}
+
 function runYtDlp(args, { timeoutMs } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(config.download.ytdlpBin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(YTDLP_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => {
@@ -22,7 +37,7 @@ function runYtDlp(args, { timeoutMs } = {}) {
       const error = new Error('yt-dlp timed out');
       error.code = 'YTDLP_TIMEOUT';
       reject(error);
-    }, timeoutMs || config.download.probeTimeoutMs);
+    }, timeoutMs || PROBE_TIMEOUT_MS);
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
@@ -70,7 +85,7 @@ async function probeMedia(url, platform) {
     playlistArg(platform),
     ...extraCookieArgs(),
     url,
-  ], { timeoutMs: config.download.probeTimeoutMs });
+  ], { timeoutMs: PROBE_TIMEOUT_MS });
 
   const trimmed = stdout.trim();
   if (!trimmed) {
@@ -106,15 +121,16 @@ async function downloadMedia({ url, platform, jobDir, height, language }) {
     '--no-warnings',
     '--no-mtime',
     playlistArg(platform),
-    '--max-downloads', '10',
-    '--max-filesize', String(config.download.maxFilesize),
+    '--max-downloads', String(MAX_PLAYLIST_ITEMS),
+    '--max-filesize', String(MAX_FILESIZE),
+    ...extraRateArgs(),
     '--merge-output-format', 'mp4',
     '--remux-video', 'mp4',
     '-f', format,
     '-o', output,
     ...extraCookieArgs(),
     url,
-  ], { timeoutMs: config.download.downloadTimeoutMs });
+  ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });
 
   return listDownloadedFiles(jobDir);
 }

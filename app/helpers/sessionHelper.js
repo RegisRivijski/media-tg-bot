@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const config = require('../../config/default');
+const { SESSION_TTL_MS } = require('../constants/download');
 
 const sessions = new Map();
 const inflightChats = new Set();
@@ -19,7 +19,7 @@ function getSession(id) {
   if (!session) {
     return null;
   }
-  if (Date.now() - session.createdAt > config.download.sessionTtlMs) {
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
     sessions.delete(id);
     return null;
   }

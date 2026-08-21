@@ -1,6 +1,6 @@
 const { languageLabel } = require('../constants/languages');
+const { RESOLUTION_STEPS } = require('../constants/download');
 
-const RESOLUTION_STEPS = [360, 480, 720, 1080];
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
 function normalizeLang(value) {

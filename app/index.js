@@ -1,6 +1,7 @@
 const { Telegraf } = require('telegraf');
 
 const config = require('../config/default');
+const { DEFAULT_HEIGHT, LIMIT_RATE_BYTES, MAX_FILESIZE, YTDLP_BIN } = require('./constants/download');
 const errorsHandler = require('./middlewares/errorsHandler');
 const { registerRoutes } = require('./routes');
 const { registerBotCommands } = require('./helpers/telegramCommandsHelper');
@@ -21,9 +22,10 @@ function printStartupTable(apiRoot) {
     Application: config.application.name,
     Version: config.application.version,
     LocalApi: Boolean(apiRoot),
-    YtDlp: config.download.ytdlpBin,
-    MaxFilesizeMb: Math.round(config.download.maxFilesize / (1024 * 1024)),
-    DefaultHeight: config.download.defaultHeight,
+    YtDlp: YTDLP_BIN,
+    MaxFilesizeMb: Math.round(MAX_FILESIZE / (1024 * 1024)),
+    LimitRateMBps: Math.round(LIMIT_RATE_BYTES / (1024 * 1024)),
+    DefaultHeight: DEFAULT_HEIGHT,
   });
 }
 
