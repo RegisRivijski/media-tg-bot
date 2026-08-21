@@ -36,13 +36,11 @@ function chunk(items, size) {
 
 async function videoSendMeta(filePath, { duration, width, height } = {}) {
   const meta = await ffmpegHelper.probeVideo(filePath).catch(() => ({}));
-  const thumbPath = await ffmpegHelper.makeThumb(filePath).catch(() => null);
   return {
     supports_streaming: true,
     duration: meta.duration || duration,
     width: meta.width || width,
     height: meta.height || height,
-    thumb: thumbPath ? asInput(thumbPath) : undefined,
   };
 }
 

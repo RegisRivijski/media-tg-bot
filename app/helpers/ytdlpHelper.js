@@ -32,8 +32,8 @@ function extraExtractArgs() {
   return ['--ignore-errors', '--ignore-no-formats-error'];
 }
 
-function extraInstagramArgs(platform) {
-  if (platform !== 'instagram') {
+function extraInstagramArgs(platform, { imagesOnly } = {}) {
+  if (platform !== 'instagram' || !imagesOnly) {
     return [];
   }
   return [
@@ -162,22 +162,24 @@ const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.ogg', '.opus', '.wav', '.aac']);
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v']);
 
-function fileStem(filePath) {
-  return filePath.slice(0, filePath.length - path.extname(filePath).length);
+function mediaId(filePath) {
+  const base = path.basename(filePath, path.extname(filePath));
+  const match = base.match(/^\d+_(.+)$/);
+  return match ? match[1] : base;
 }
 
 function dropVideoThumbs(files) {
-  const videoStems = new Set(
+  const videoIds = new Set(
     files
       .filter((filePath) => VIDEO_EXTS.has(path.extname(filePath).toLowerCase()))
-      .map(fileStem),
+      .map(mediaId),
   );
   return files.filter((filePath) => {
     const ext = path.extname(filePath).toLowerCase();
     if (!IMAGE_EXTS.has(ext)) {
       return true;
     }
-    return !videoStems.has(fileStem(filePath));
+    return !videoIds.has(mediaId(filePath));
   });
 }
 
@@ -226,7 +228,7 @@ async function downloadMedia({ url, platform, jobDir, height, language, audio, i
       '--no-warnings',
       '--no-mtime',
       ...extraExtractArgs(),
-      ...extraInstagramArgs(platform),
+      ...extraInstagramArgs(platform, { imagesOnly }),
       playlistArg(platform),
       '--max-downloads', String(MAX_PLAYLIST_ITEMS),
       '--playlist-end', String(MAX_PLAYLIST_ITEMS),
@@ -235,7 +237,7 @@ async function downloadMedia({ url, platform, jobDir, height, language, audio, i
       ...mediaArgs,
       ...formatArgs,
       '-o', output,
-      '-o', `thumbnail:${output}`,
+      ...(imagesOnly ? ['-o', `thumbnail:${output}`] : []),
       ...extraCookieArgs(),
       url,
     ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });

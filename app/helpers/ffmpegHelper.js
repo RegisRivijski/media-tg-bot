@@ -273,40 +273,8 @@ async function prepareVideos(files) {
   return next;
 }
 
-async function makeThumb(filePath) {
-  const thumbPath = `${filePath.replace(/\.[^.]+$/, '')}.thumb.jpg`;
-  const scale = 'scale=320:320:force_original_aspect_ratio=decrease';
-  try {
-    await run(FFMPEG_BIN, [
-      '-y',
-      '-ss', '0.3',
-      '-i', filePath,
-      '-frames:v', '1',
-      '-an',
-      '-q:v', '4',
-      '-vf', scale,
-      thumbPath,
-    ], 20 * 1000);
-  } catch {
-    await run(FFMPEG_BIN, [
-      '-y',
-      '-i', filePath,
-      '-frames:v', '1',
-      '-an',
-      '-q:v', '4',
-      '-vf', scale,
-      thumbPath,
-    ], 20 * 1000);
-  }
-  if (!fs.existsSync(thumbPath) || !fs.statSync(thumbPath).size) {
-    throw new Error('thumb empty');
-  }
-  return thumbPath;
-}
-
 module.exports = {
   probeVideo,
-  makeThumb,
   ensureTelegramVideo,
   prepareVideos,
 };
