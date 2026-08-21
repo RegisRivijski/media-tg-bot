@@ -127,7 +127,8 @@ async function downloadMedia({ url, platform, jobDir, height, language, audio })
     : buildFormatSelector({ height, language });
   const mediaArgs = audio
     ? ['-x', '--audio-format', 'm4a', '--audio-quality', '0']
-    : ['--merge-output-format', 'mp4', '--remux-video', 'mp4'];
+    : ['--merge-output-format', 'mp4', '--remux-video', 'mp4',
+      '--postprocessor-args', 'ffmpeg:-movflags +faststart'];
 
   await runYtDlp([
     '--quiet',

@@ -121,6 +121,9 @@ function buildFormatSelector({ height, language }) {
   const h = Number(height) || 720;
   const lang = language ? `[language^=${language}]` : '';
   return [
+    `bv*[height<=${h}][ext=mp4][vcodec^=avc1]+ba${lang}`,
+    `bv*[height<=${h}][vcodec^=avc1]+ba${lang}`,
+    `bv*[height<=${h}][vcodec*=avc]+ba${lang}`,
     `bv*[height<=${h}][ext=mp4]+ba${lang}`,
     `bv*[height<=${h}]+ba${lang}`,
     `b[height<=${h}]${lang}`,

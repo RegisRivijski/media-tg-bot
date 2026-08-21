@@ -8,6 +8,7 @@ const {
 } = require('../constants/download');
 const copy = require('./copyHelper');
 const formatHelper = require('./formatHelper');
+const ffmpegHelper = require('./ffmpegHelper');
 const keyboardHelper = require('./keyboardHelper');
 const sendHelper = require('./sendHelper');
 const sessionHelper = require('./sessionHelper');
@@ -104,8 +105,10 @@ async function runDownload(ctx, status, session) {
       return;
     }
 
+    const ready = isAudio ? files : await ffmpegHelper.prepareVideos(files);
+
     await sendHelper.deleteStatus(ctx, status);
-    await sendHelper.sendFiles(ctx, files, {
+    await sendHelper.sendFiles(ctx, ready, {
       caption: isAudio
         ? undefined
         : copy.captionText({

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { HTML } = require('./copyHelper');
+const ffmpegHelper = require('./ffmpegHelper');
 
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm']);
@@ -23,6 +24,18 @@ function fileKind(filePath) {
 
 function asInput(filePath) {
   return { source: fs.createReadStream(filePath) };
+}
+
+async function videoSendMeta(filePath, { duration, width, height } = {}) {
+  const meta = await ffmpegHelper.probeVideo(filePath).catch(() => ({}));
+  const thumbPath = await ffmpegHelper.makeThumb(filePath).catch(() => null);
+  return {
+    supports_streaming: true,
+    duration: meta.duration || duration,
+    width: meta.width || width,
+    height: meta.height || height,
+    thumb: thumbPath ? asInput(thumbPath) : undefined,
+  };
 }
 
 async function sendFiles(ctx, files, {
@@ -55,13 +68,11 @@ async function sendFiles(ctx, files, {
   if (toSend.length === 1) {
     const kind = fileKind(toSend[0]);
     if (kind === 'video') {
+      const videoExtra = await videoSendMeta(toSend[0], { duration, width, height });
       try {
         await ctx.replyWithVideo(asInput(toSend[0]), {
           ...extra,
-          supports_streaming: true,
-          duration,
-          width,
-          height,
+          ...videoExtra,
         });
       } catch (error) {
         console.warn('[send] video failed, sending as document', error.message);
@@ -91,7 +102,8 @@ async function sendFiles(ctx, files, {
     return;
   }
 
-  const media = toSend.slice(0, 10).map((filePath, index) => {
+  const media = [];
+  for (const [index, filePath] of toSend.slice(0, 10).entries()) {
     const kind = fileKind(filePath);
     const item = {
       type: kind === 'video' ? 'video' : 'photo',
@@ -102,10 +114,11 @@ async function sendFiles(ctx, files, {
       item.parse_mode = 'HTML';
     }
     if (item.type === 'video') {
-      item.supports_streaming = true;
+      const videoExtra = await videoSendMeta(filePath);
+      Object.assign(item, videoExtra);
     }
-    return item;
-  });
+    media.push(item);
+  }
 
   await ctx.replyWithMediaGroup(media, {
     reply_to_message_id: replyToMessageId,
