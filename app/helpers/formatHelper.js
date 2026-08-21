@@ -145,12 +145,33 @@ function buildAudioFormatSelector(language) {
   ].join('/');
 }
 
+function hasPlayableVideo(info) {
+  const formats = info.formats || [];
+  return formats.some((format) => format.vcodec && format.vcodec !== 'none');
+}
+
 function isImageInfo(info) {
+  if (!info) {
+    return true;
+  }
   const ext = String(info.ext || '').toLowerCase();
   if (IMAGE_EXTS.has(ext)) {
     return true;
   }
-  return Boolean(info.vcodec === 'none' && (!info.acodec || info.acodec === 'none'));
+  if (hasPlayableVideo(info)) {
+    return false;
+  }
+  if ((Number(info.duration) || 0) > 1) {
+    return false;
+  }
+  if (info.vcodec === 'none' && (!info.acodec || info.acodec === 'none')) {
+    return true;
+  }
+  return Boolean(
+    info.thumbnail
+    || (info.thumbnails && info.thumbnails.length)
+    || !(info.formats && info.formats.length),
+  );
 }
 
 function isLiveInfo(info) {
@@ -158,10 +179,13 @@ function isLiveInfo(info) {
 }
 
 function flattenEntries(info) {
-  if (Array.isArray(info.entries) && info.entries.length) {
-    return info.entries.filter(Boolean);
+  if (!Array.isArray(info.entries) || !info.entries.length) {
+    return [info];
   }
-  return [info];
+  return info.entries.map((entry, index) => entry || {
+    id: `${info.id || 'item'}_${index + 1}`,
+    thumbnails: info.thumbnails || [],
+  });
 }
 
 function maxDuration(info) {
@@ -180,6 +204,78 @@ function isImagesOnly(info) {
   return Boolean(entries.length && entries.every((entry) => isImageInfo(entry)));
 }
 
+function collectImageItems(info) {
+  const items = flattenEntries(info).map((entry, index) => {
+    if (!isImageInfo(entry)) {
+      return null;
+    }
+    const url = largestImageUrl(entry);
+    if (!url) {
+      return null;
+    }
+    return {
+      index,
+      id: entry.id || String(index + 1),
+      url,
+    };
+  }).filter(Boolean);
+  if (items.length) {
+    return items;
+  }
+  const url = largestImageUrl(info);
+  if (!url) {
+    return [];
+  }
+  return [{ index: 0, id: info.id || 'img', url }];
+}
+
+function largestImageUrl(entry) {
+  const candidates = [];
+  (entry.thumbnails || []).forEach((thumb) => {
+    if (thumb && thumb.url) {
+      candidates.push(thumb);
+    }
+  });
+  if (entry.thumbnail) {
+    candidates.push({
+      url: entry.thumbnail,
+      width: entry.width,
+      height: entry.height,
+    });
+  }
+  (entry.formats || []).forEach((format) => {
+    const ext = String(format.ext || '').toLowerCase();
+    if (format.url && IMAGE_EXTS.has(ext)) {
+      candidates.push(format);
+    }
+  });
+  if (!candidates.length) {
+    return '';
+  }
+  candidates.sort((left, right) => {
+    const area = (item) => (Number(item.width) || 0) * (Number(item.height) || 0);
+    return area(right) - area(left);
+  });
+  return candidates[0].url;
+}
+
+function postText(info) {
+  const fromInfo = String(info.description || '').trim();
+  if (fromInfo) {
+    return fromInfo;
+  }
+  const fromEntry = flattenEntries(info).find((entry) => entry && entry.description);
+  return String(fromEntry?.description || '').trim();
+}
+
+function displayTitle(info) {
+  const title = String(info.title || '').trim();
+  if (/^(post|video|photo) by /i.test(title)) {
+    return '';
+  }
+  return title;
+}
+
 module.exports = {
   RESOLUTION_STEPS,
   collectLanguages,
@@ -194,4 +290,7 @@ module.exports = {
   maxDuration,
   isAlbumInfo,
   isImagesOnly,
+  collectImageItems,
+  postText,
+  displayTitle,
 };

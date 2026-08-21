@@ -28,6 +28,20 @@ function extraRateArgs() {
   return ['--limit-rate', String(LIMIT_RATE_BYTES)];
 }
 
+function extraExtractArgs() {
+  return ['--ignore-errors', '--ignore-no-formats-error'];
+}
+
+function extraInstagramArgs(platform) {
+  if (platform !== 'instagram') {
+    return [];
+  }
+  return [
+    '--write-thumbnail',
+    '--convert-thumbnails', 'jpg',
+  ];
+}
+
 function runYtDlp(args, { timeoutMs } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(YTDLP_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -64,6 +78,7 @@ function runYtDlp(args, { timeoutMs } = {}) {
       if (code !== 0 && code !== 101) {
         const error = new Error((stderr || stdout).slice(-800) || `yt-dlp exited ${code}`);
         error.code = 'YTDLP_FAIL';
+        error.stdout = stdout;
         error.stderr = stderr;
         reject(error);
         return;
@@ -73,31 +88,98 @@ function runYtDlp(args, { timeoutMs } = {}) {
   });
 }
 
-function playlistArg(platform) {
-  return platform === 'youtube' ? '--no-playlist' : '--yes-playlist';
-}
-
-async function probeMedia(url, platform) {
-  const { stdout } = await runYtDlp([
-    '-J',
-    '--quiet',
-    '--no-warnings',
-    '--skip-download',
-    playlistArg(platform),
-    ...extraCookieArgs(),
-    url,
-  ], { timeoutMs: PROBE_TIMEOUT_MS });
-
-  const trimmed = stdout.trim();
+function parseDumpJson(stdout) {
+  const trimmed = String(stdout || '').trim();
   if (!trimmed) {
     const error = new Error('empty yt-dlp json');
     error.code = 'YTDLP_FAIL';
     throw error;
   }
-  return JSON.parse(trimmed);
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // JSONL or JSON mixed with log lines
+  }
+
+  const objects = [];
+  trimmed.split('\n').forEach((line) => {
+    const candidate = line.trim();
+    if (!candidate.startsWith('{')) {
+      return;
+    }
+    try {
+      objects.push(JSON.parse(candidate));
+    } catch {
+      // skip
+    }
+  });
+
+  if (objects.length === 1) {
+    return objects[0];
+  }
+  if (objects.length > 1) {
+    return {
+      _type: 'playlist',
+      title: objects[0].playlist_title || objects[0].title || '',
+      entries: objects,
+    };
+  }
+
+  const error = new Error('empty yt-dlp json');
+  error.code = 'YTDLP_FAIL';
+  throw error;
+}
+
+function playlistArg(platform) {
+  return platform === 'youtube' ? '--no-playlist' : '--yes-playlist';
+}
+
+async function probeMedia(url, platform) {
+  let stdout = '';
+  try {
+    ({ stdout } = await runYtDlp([
+      '-J',
+      '--quiet',
+      '--no-warnings',
+      '--skip-download',
+      ...extraExtractArgs(),
+      playlistArg(platform),
+      ...extraCookieArgs(),
+      url,
+    ], { timeoutMs: PROBE_TIMEOUT_MS }));
+  } catch (error) {
+    stdout = error.stdout || '';
+    if (!String(stdout).trim()) {
+      throw error;
+    }
+  }
+
+  return parseDumpJson(stdout);
 }
 
 const AUDIO_EXTS = new Set(['.m4a', '.mp3', '.ogg', '.opus', '.wav', '.aac']);
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v']);
+
+function fileStem(filePath) {
+  return filePath.slice(0, filePath.length - path.extname(filePath).length);
+}
+
+function dropVideoThumbs(files) {
+  const videoStems = new Set(
+    files
+      .filter((filePath) => VIDEO_EXTS.has(path.extname(filePath).toLowerCase()))
+      .map(fileStem),
+  );
+  return files.filter((filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (!IMAGE_EXTS.has(ext)) {
+      return true;
+    }
+    return !videoStems.has(fileStem(filePath));
+  });
+}
 
 function listDownloadedFiles(jobDir, { audioOnly } = {}) {
   if (!fs.existsSync(jobDir)) {
@@ -116,19 +198,21 @@ function listDownloadedFiles(jobDir, { audioOnly } = {}) {
       return stat.isFile() && stat.size > 0 && !skipExt.has(ext);
     })
     .sort();
-  if (!audioOnly) {
-    return files;
+  if (audioOnly) {
+    const audio = files.filter((filePath) => AUDIO_EXTS.has(path.extname(filePath).toLowerCase()));
+    return audio.length ? audio : files;
   }
-  const audio = files.filter((filePath) => AUDIO_EXTS.has(path.extname(filePath).toLowerCase()));
-  return audio.length ? audio : files;
+  return dropVideoThumbs(files);
 }
 
 async function downloadMedia({ url, platform, jobDir, height, language, audio, imagesOnly }) {
   fs.mkdirSync(jobDir, { recursive: true });
   const output = path.join(jobDir, '%(autonumber)03d_%(id)s.%(ext)s');
+  const skipVideoFormat = !audio && (imagesOnly || platform === 'instagram');
   const format = audio
     ? buildAudioFormatSelector(language)
-    : (imagesOnly ? 'best' : buildFormatSelector({ height, language }));
+    : buildFormatSelector({ height, language });
+  const formatArgs = skipVideoFormat ? [] : ['-f', format];
   const mediaArgs = audio
     ? ['-x', '--audio-format', 'm4a', '--audio-quality', '0']
     : (imagesOnly
@@ -141,15 +225,17 @@ async function downloadMedia({ url, platform, jobDir, height, language, audio, i
       '--quiet',
       '--no-warnings',
       '--no-mtime',
-      '--ignore-errors',
+      ...extraExtractArgs(),
+      ...extraInstagramArgs(platform),
       playlistArg(platform),
       '--max-downloads', String(MAX_PLAYLIST_ITEMS),
       '--playlist-end', String(MAX_PLAYLIST_ITEMS),
       '--max-filesize', String(MAX_FILESIZE),
       ...extraRateArgs(),
       ...mediaArgs,
-      '-f', format,
+      ...formatArgs,
       '-o', output,
+      '-o', `thumbnail:${output}`,
       ...extraCookieArgs(),
       url,
     ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });

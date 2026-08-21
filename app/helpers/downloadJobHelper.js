@@ -9,6 +9,7 @@ const {
 const copy = require('./copyHelper');
 const formatHelper = require('./formatHelper');
 const ffmpegHelper = require('./ffmpegHelper');
+const imageHelper = require('./imageHelper');
 const keyboardHelper = require('./keyboardHelper');
 const sendHelper = require('./sendHelper');
 const sessionHelper = require('./sessionHelper');
@@ -102,15 +103,25 @@ async function runDownload(ctx, status, session) {
   );
 
   try {
-    const files = await ytdlpHelper.downloadMedia({
-      url: session.url,
-      platform: session.platform,
-      jobDir,
-      height: session.resolution,
-      language: session.language,
-      audio: isAudio,
-      imagesOnly: session.onlyImages,
-    });
+    let files = [];
+    if (!isAudio && session.onlyImages && session.imageItems?.length) {
+      files = await imageHelper.downloadImages(session.imageItems, jobDir);
+    }
+    if (!files.length) {
+      files = await ytdlpHelper.downloadMedia({
+        url: session.url,
+        platform: session.platform,
+        jobDir,
+        height: session.resolution,
+        language: session.language,
+        audio: isAudio,
+        imagesOnly: session.onlyImages,
+      });
+    }
+    if (!isAudio && session.imageItems?.length && !session.onlyImages) {
+      const photos = await imageHelper.downloadImages(session.imageItems, jobDir);
+      files = [...files, ...photos];
+    }
     if (!files.length) {
       track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'empty' }));
       await sendHelper.editStatus(ctx, status, copy.nothingFoundText(), EMPTY_KEYBOARD);
@@ -120,11 +131,21 @@ async function runDownload(ctx, status, session) {
     const ready = isAudio ? files : await ffmpegHelper.prepareVideos(files);
 
     await sendHelper.deleteStatus(ctx, status);
+
+    const longPost = Boolean(session.postText && session.postText.length > 900);
+    if (longPost) {
+      await ctx.reply(copy.postBodyText(session.postText), {
+        ...copy.HTML_NO_PREVIEW,
+        reply_to_message_id: session.replyToMessageId,
+      });
+    }
+
     await sendHelper.sendFiles(ctx, ready, {
       caption: isAudio
         ? undefined
         : copy.captionText({
-          title: session.title,
+          title: session.onlyImages ? '' : session.title,
+          postText: longPost ? '' : session.postText,
           platformLabel: session.platformLabel,
           height: (session.onlyImages || session.isAlbum) ? undefined : session.resolution,
           languageLabelValue: languageName(session),
@@ -179,6 +200,31 @@ async function processLink(ctx, link) {
   try {
     info = await ytdlpHelper.probeMedia(link.url, link.platform);
   } catch (error) {
+    if (link.platform === 'instagram') {
+      const session = {
+        url: link.url,
+        platform: link.platform,
+        platformLabel: link.platformLabel,
+        title: '',
+        duration: 0,
+        languages: [],
+        resolutions: [],
+        language: '',
+        resolution: undefined,
+        postText: '',
+        imageItems: [],
+        mediaKind: 'album',
+        onlyImages: true,
+        isAlbum: true,
+        items: 0,
+        chatId: ctx.chat.id,
+        userId: ctx.from.id,
+        replyToMessageId: ctx.message.message_id,
+        statusMessageId: status.message_id,
+      };
+      await runDownload(ctx, status, session);
+      return;
+    }
     await handleDownloadError(ctx, status, error, ctx.message.message_id, {
       platform: link.platform,
     });
@@ -208,7 +254,9 @@ async function processLink(ctx, link) {
   const resolution = onlyImages
     ? undefined
     : formatHelper.defaultResolution(resolutions, DEFAULT_HEIGHT);
-  const title = info.title || '';
+  const title = formatHelper.displayTitle(info) || info.title || '';
+  const postText = link.platform === 'instagram' ? formatHelper.postText(info) : '';
+  const imageItems = formatHelper.collectImageItems(info);
   const askLanguage = !onlyImages && !isAlbum && languages.length > 1;
   let mediaKind = 'video';
   if (onlyImages) {
@@ -222,6 +270,8 @@ async function processLink(ctx, link) {
     platform: link.platform,
     platformLabel: link.platformLabel,
     title,
+    postText,
+    imageItems,
     duration,
     languages,
     resolutions,

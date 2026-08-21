@@ -62,20 +62,38 @@ function downloadingText(title) {
     : 'Адаптирую…';
 }
 
-function captionText({ title, platformLabel, height, languageLabelValue, audio }) {
+function captionText({ title, postText, platformLabel, height, languageLabelValue, audio }) {
   const bits = [
     platformLabel,
     audio ? 'аудио' : (height ? `${height}p` : ''),
     languageLabelValue,
   ].filter(Boolean);
+  const body = String(postText || title || '').trim();
+  const meta = bits.length ? escapeHtml(bits.join(' · ')) : '';
   const lines = [];
-  if (title) {
-    lines.push(`<b>${escapeHtml(title)}</b>`);
+  if (body) {
+    lines.push(escapeHtml(body));
   }
-  if (bits.length) {
-    lines.push(escapeHtml(bits.join(' · ')));
+  if (meta) {
+    lines.push(meta);
   }
-  return lines.join('\n').slice(0, 1024);
+  const joined = lines.join('\n');
+  if (joined.length <= 1024) {
+    return joined;
+  }
+
+  const reserved = meta ? meta.length + 1 : 0;
+  const budget = Math.max(0, 1024 - reserved - 1);
+  const clipped = `${escapeHtml(body).slice(0, budget)}…`;
+  return (meta ? `${clipped}\n${meta}` : clipped).slice(0, 1024);
+}
+
+function postBodyText(postText) {
+  const body = String(postText || '').trim();
+  if (!body) {
+    return '';
+  }
+  return escapeHtml(body).slice(0, 4096);
 }
 
 function liveStreamText() {
@@ -87,7 +105,7 @@ function tooLongText() {
 }
 
 function tooLargeText() {
-  return 'Не влез. Возьми качество ниже или аудио.';
+  return 'Файл слишком большой. Возьми качество ниже или аудио.';
 }
 
 function busyText() {
@@ -99,7 +117,7 @@ function notYourChoiceText() {
 }
 
 function expiredText() {
-  return 'Протухло. Кинь ссылку ещё раз.';
+  return 'Выбор устарел. Кинь ссылку ещё раз.';
 }
 
 function cancelledText() {
@@ -107,7 +125,7 @@ function cancelledText() {
 }
 
 function nothingFoundText() {
-  return 'По ссылке пусто.';
+  return 'По ссылке ничего нет.';
 }
 
 function missingBinaryText() {
@@ -115,11 +133,11 @@ function missingBinaryText() {
 }
 
 function failedText() {
-  return 'Не скачалось. Ссылка закрыта или протухла.';
+  return 'Не получилось скачать. Ссылка недоступна.';
 }
 
 function unknownErrorText() {
-  return 'Что-то сломалось. Попробуй позже.';
+  return 'Что-то пошло не так. Попробуй позже.';
 }
 
 module.exports = {
@@ -133,6 +151,7 @@ module.exports = {
   chooseResolutionText,
   downloadingText,
   captionText,
+  postBodyText,
   liveStreamText,
   tooLongText,
   tooLargeText,
