@@ -6,10 +6,10 @@ const COMMANDS = [
 async function registerBotCommands(bot) {
   await bot.telegram.setMyCommands(COMMANDS);
   await bot.telegram.setMyShortDescription(
-    'Кинь brainrot — адаптирую в файл.',
+    'Кинь ссылку — верну файлом.',
   ).catch(() => {});
   await bot.telegram.setMyDescription([
-    'Brainrot Adapter превращает ролики в файлы.',
+    'Brain Rot Adapter сохраняет ролики файлами.',
     '',
     'Кинь ссылку на YouTube, TikTok или Instagram.',
     'Верну видео или аудио.',

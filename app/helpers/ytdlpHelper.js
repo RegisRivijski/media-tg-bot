@@ -34,7 +34,7 @@ function extraExtractArgs() {
 
 function extraInstagramArgs(platform, { imagesOnly } = {}) {
   if (platform !== 'instagram' || !imagesOnly) {
-    return [];
+    return ['--no-write-thumbnail'];
   }
   return [
     '--write-thumbnail',

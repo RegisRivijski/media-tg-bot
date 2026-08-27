@@ -219,14 +219,7 @@ function collectImageItems(info) {
       url,
     };
   }).filter(Boolean);
-  if (items.length) {
-    return items;
-  }
-  const url = largestImageUrl(info);
-  if (!url) {
-    return [];
-  }
-  return [{ index: 0, id: info.id || 'img', url }];
+  return items;
 }
 
 function largestImageUrl(entry) {

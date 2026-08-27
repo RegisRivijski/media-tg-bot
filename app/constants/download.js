@@ -5,15 +5,15 @@ const YTDLP_BIN = 'yt-dlp';
 const DOWNLOAD_DIR = path.join(os.tmpdir(), 'media-tg-bot');
 const COOKIES_FILE = '/cookies/cookies.txt';
 
-const MAX_FILESIZE = 200 * 1024 * 1024;
+const MAX_FILESIZE = 1990 * 1024 * 1024;
 const LIMIT_RATE_BYTES = 10 * 1024 * 1024;
 const MAX_DURATION_SEC = 60 * 60;
 const MAX_LINKS_PER_MESSAGE = 1;
 const MAX_PLAYLIST_ITEMS = 10;
 
 const PROBE_TIMEOUT_MS = 45 * 1000;
-const DOWNLOAD_TIMEOUT_MS = 8 * 60 * 1000;
-const FFMPEG_TIMEOUT_MS = 6 * 60 * 1000;
+const DOWNLOAD_TIMEOUT_MS = 20 * 60 * 1000;
+const FFMPEG_TIMEOUT_MS = 20 * 60 * 1000;
 const SESSION_TTL_MS = 10 * 60 * 1000;
 
 const DEFAULT_HEIGHT = 720;

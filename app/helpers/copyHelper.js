@@ -15,16 +15,16 @@ function escapeHtml(value) {
 
 function startText() {
   return [
-    '<b>Brainrot Adapter</b>',
+    '<b>Brain Rot Adapter</b>',
     '',
-    'Кинь ссылку — адаптирую в файл.',
+    'Кинь ссылку — скачаю файлом.',
     'YouTube · TikTok · Instagram',
   ].join('\n');
 }
 
 function helpText() {
   return [
-    '<b>Brainrot Adapter</b>',
+    '<b>Brain Rot Adapter</b>',
     '',
     'Кинь ссылку. Если надо — спрошу язык и качество.',
     'Можно видео, фото или аудио.',
@@ -32,7 +32,7 @@ function helpText() {
 }
 
 function lookingText() {
-  return 'Адаптирую…';
+  return 'Смотрю…';
 }
 
 function chooseLanguageText(title) {
@@ -58,8 +58,8 @@ function chooseResolutionText(title, languageLabelValue) {
 
 function downloadingText(title) {
   return title
-    ? `Адаптирую: <b>${escapeHtml(title)}</b>`
-    : 'Адаптирую…';
+    ? `Качаю: <b>${escapeHtml(title)}</b>`
+    : 'Качаю…';
 }
 
 function captionText({ title, postText, platformLabel, height, languageLabelValue, audio }) {
@@ -109,7 +109,7 @@ function tooLargeText() {
 }
 
 function busyText() {
-  return 'Уже адаптирую другое.';
+  return 'Уже качаю другое.';
 }
 
 function notYourChoiceText() {
@@ -121,7 +121,7 @@ function expiredText() {
 }
 
 function cancelledText() {
-  return 'Ок, без адаптации.';
+  return 'Ок, отменил.';
 }
 
 function nothingFoundText() {

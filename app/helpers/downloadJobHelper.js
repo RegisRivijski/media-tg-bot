@@ -64,7 +64,7 @@ function downloadProps(session = {}, extra = {}) {
 
 function replyToOriginal(ctx, messageId) {
   return {
-    ...copy.HTML,
+    ...copy.HTML_NO_PREVIEW,
     reply_to_message_id: messageId,
   };
 }
@@ -121,6 +121,9 @@ async function runDownload(ctx, status, session) {
     if (!isAudio && session.imageItems?.length && !session.onlyImages) {
       const photos = await imageHelper.downloadImages(session.imageItems, jobDir);
       files = [...files, ...photos];
+    }
+    if (!isAudio && session.platform !== 'instagram') {
+      files = files.filter((filePath) => sendHelper.fileKind(filePath) !== 'photo');
     }
     if (!files.length) {
       track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'empty' }));
@@ -246,7 +249,7 @@ async function processLink(ctx, link) {
   }
 
   const isAlbum = formatHelper.isAlbumInfo(info);
-  const onlyImages = formatHelper.isImagesOnly(info);
+  const onlyImages = link.platform === 'instagram' && formatHelper.isImagesOnly(info);
   const probeTarget = entries.length === 1 ? entries[0] : info;
   const languages = (onlyImages || isAlbum) ? [] : formatHelper.collectLanguages(probeTarget);
   const resolutions = (onlyImages || isAlbum) ? [] : formatHelper.collectResolutions(probeTarget);
@@ -256,7 +259,7 @@ async function processLink(ctx, link) {
     : formatHelper.defaultResolution(resolutions, DEFAULT_HEIGHT);
   const title = formatHelper.displayTitle(info) || info.title || '';
   const postText = link.platform === 'instagram' ? formatHelper.postText(info) : '';
-  const imageItems = formatHelper.collectImageItems(info);
+  const imageItems = link.platform === 'instagram' ? formatHelper.collectImageItems(info) : [];
   const askLanguage = !onlyImages && !isAlbum && languages.length > 1;
   let mediaKind = 'video';
   if (onlyImages) {
