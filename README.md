@@ -1,52 +1,52 @@
 # media-tg-bot
 
-Telegram-бот: читает сообщения в чате, и если кто-то кинул ссылку на YouTube / Shorts, TikTok, Instagram-пост или Reels — скачивает ролик и отвечает файлом.
+Telegram bot that watches a chat for YouTube / Shorts, TikTok, Instagram post, or Reels links, downloads the media, and replies with the file.
 
-Если у видео несколько озвучек или качеств, бот сначала спросит язык и разрешение. Короткие ролики (шортс, рилс, тикток до ~90 секунд) качает сразу в 720p, без лишних кнопок.
+If a video has several audio tracks or qualities, the bot asks for language and resolution first. Short clips (Shorts, Reels, TikTok up to ~90 seconds) download at 720p with no extra buttons.
 
-Архитектура как у `gacha-simulator-rest` и `minecraft-tg-bot`, но на CommonJS (`require` / `module.exports`), без `import`/`export`.
+Layout matches `minecraft-tg-bot`, but this project is CommonJS (`require` / `module.exports`), not ESM.
 
-## Что умеет
+## Features
 
-- Ловит ссылки в тексте и в подписи к сообщению
-- YouTube, Shorts, TikTok, Instagram (пост / reel / IGTV)
-- Спрашивает язык озвучки, если yt-dlp видит несколько аудиодорожек
-- Спрашивает разрешение (360 / 480 / 720 / 1080), если ролик длиннее 90 секунд
-- Отвечает на исходное сообщение видео или альбомом фото
-- Ходит в локальный Telegram Bot API, если заданы `TELEGRAM_BOT_API_*` (файлы больше 50 МБ)
+- Picks up links in message text and captions
+- YouTube, Shorts, TikTok, Instagram (post / reel / IGTV)
+- Asks for an audio language when yt-dlp sees more than one track
+- Asks for resolution (360 / 480 / 720 / 1080) when the clip is longer than 90 seconds
+- Replies to the original message with video or a photo album
+- Uses a local Telegram Bot API when `TELEGRAM_BOT_API_*` are set (files larger than 50 MB)
 
-В группе бот должен **видеть все сообщения**: BotFather → `/setprivacy` → Disable, либо сделай бота админом.
+In a group the bot must **see every message**: BotFather → `/setprivacy` → Disable, or make the bot an admin.
 
-## Структура
+## Structure
 
-Тонкий вход, логика в `app/`.
+Thin entrypoint; logic lives in `app/`.
 
 ```
-index.js                 # старт: require('./app')
+index.js                 # start: require('./app')
 app/
   index.js               # Telegraf, middleware, launch
-  routes/                # команды и апдейты → controllers
-  controllers/           # /start, /help, ссылки, callback-кнопки
-  helpers/               # ссылки, yt-dlp, сессии, отправка, тексты
-  middlewares/           # ошибки
-  constants/             # площадки, языки, лимиты загрузки
+  routes/                # commands and updates → controllers
+  controllers/           # /start, /help, links, callback buttons
+  helpers/               # links, yt-dlp, sessions, send, copy
+  middlewares/           # errors
+  constants/             # platforms, languages, download limits
 config/
-  default.js             # токен и локальный Bot API из окружения
+  default.js             # token and local Bot API from the environment
 ```
 
-Как читать код:
+How to read the code:
 
-1. Сообщение приходит → `app/routes/index.js`
-2. `mediaController` достаёт ссылку через `linkHelper`
-3. `downloadJobHelper` спрашивает yt-dlp, что это за ролик
-4. Если есть выбор — inline-кнопки; если нет — сразу качает
-5. Файл уходит ответом в тот же чат, временные файлы удаляются
+1. A message arrives → `app/routes/index.js`
+2. `mediaController` extracts the link with `linkHelper`
+3. `downloadJobHelper` asks yt-dlp what the clip is
+4. If there is a choice — inline buttons; otherwise it downloads immediately
+5. The file is sent back in the same chat; temp files are deleted
 
-Проект **не** читает `.env`. Переменные задаются в shell, systemd или Docker.
+This project does **not** load a `.env` file. Set variables in the shell, systemd, or Docker.
 
-## Установка
+## Installation
 
-Нужны Node.js 18+, [yt-dlp](https://github.com/yt-dlp/yt-dlp) и ffmpeg в `PATH`.
+Needs Node.js 18+, [yt-dlp](https://github.com/yt-dlp/yt-dlp), and ffmpeg on `PATH`.
 
 macOS:
 
@@ -54,70 +54,69 @@ macOS:
 brew install yt-dlp ffmpeg
 ```
 
-Клон и зависимости:
+Clone and install:
 
 ```bash
+git clone https://github.com/RegisRivijski/media-tg-bot.git
 cd media-tg-bot
 npm install
 ```
 
-Токен бота:
+Bot token:
 
 ```bash
 export MEDIA_TG_BOT_API_TOKEN=your_telegram_bot_token
 ```
 
-Опционально локальный Bot API (как у остальных ботов на VPS):
+Optional local Bot API (files over 50 MB):
 
 ```bash
 export TELEGRAM_BOT_API_PROTOCOL=http:
-export TELEGRAM_BOT_API_HOST=172.17.0.1
+export TELEGRAM_BOT_API_HOST=127.0.0.1
 export TELEGRAM_BOT_API_PORT=8081
 ```
 
-Запуск:
+Start:
 
 ```bash
 npm start
 ```
 
-Для разработки: `npm run dev` (`node --watch`).
+For development: `npm run dev` (`node --watch`).
 
-### Переменные
+### Environment
 
-| Переменная | Зачем |
+| Variable | Purpose |
 | --- | --- |
-| `MEDIA_TG_BOT_API_TOKEN` | токен BotFather |
-| `TELEGRAM_BOT_API_PROTOCOL` | `http:` для локального Bot API |
-| `TELEGRAM_BOT_API_HOST` | хост локального API, например `172.17.0.1` |
-| `TELEGRAM_BOT_API_PORT` | порт, обычно `8081` |
-| `UMAMI_HOST` | origin Umami, например `http://umami:3000/umami` |
-| `UMAMI_WEBSITE_ID_MEDIA` | UUID сайта в Umami; без него аналитика молчит |
+| `MEDIA_TG_BOT_API_TOKEN` | BotFather token |
+| `TELEGRAM_BOT_API_PROTOCOL` | `http:` for a local Bot API |
+| `TELEGRAM_BOT_API_HOST` | Local API host, e.g. `127.0.0.1` |
+| `TELEGRAM_BOT_API_PORT` | Port, usually `8081` |
+| `UMAMI_HOST` | Umami origin, e.g. `http://umami:3000/umami` |
+| `UMAMI_WEBSITE_ID_MEDIA` | Umami website UUID; analytics is silent without it |
 
-Лимиты, скорость скачивания, качество, таймауты и путь к cookies — в `app/constants/download.js`. Instagram/YouTube без cookies часто не отдаются: Netscape `cookies.txt` в `~/apps/media-tg-bot-cookies/cookies.txt` (в контейнере это `/cookies/cookies.txt`).
+Limits, download rate, quality, timeouts, and the cookies path live in `app/constants/download.js`. Instagram/YouTube often fail without cookies: put a Netscape `cookies.txt` at `/cookies/cookies.txt` in the container (or set that path on the host).
 
 ## Docker
 
-`Dockerfile` ставит Node 20, python3, ffmpeg и свежий yt-dlp. Токен и остальной env — снаружи, как у `minecraft-tg-bot`.
-
-На VPS сервис уже в `vps-devel/prod/docker-compose.yml`. Cookies (если нужны) клади в `~/apps/media-tg-bot-cookies/cookies.txt`. После правки `production.env`:
+The `Dockerfile` installs Node 20, python3, ffmpeg, and a current yt-dlp. Pass the token and the rest of the env from outside, same as `minecraft-tg-bot`.
 
 ```bash
-cd prod
-docker compose up -d --build media-tg-bot
+docker build -t media-tg-bot .
+docker run --rm -e MEDIA_TG_BOT_API_TOKEN=your_telegram_bot_token media-tg-bot
 ```
 
-## Команды
+## Commands
 
-| Команда | Что делает |
+| Command | Description |
 | --- | --- |
-| `/start` | коротко, зачем бот |
-| `/help` | как кидать ссылки |
+| `/start` | Short intro |
+| `/help` | How to send links |
 
-Остальное — просто ссылка в чат, без команды.
+Anything else is just a link in the chat, no command.
 
-## Технологии
+## Technologies
 
 - Node.js — runtime, CommonJS
 - Telegraf — Telegram bot
-- yt-dlp + ffmpeg — скачивание и сборка mp4
+- yt-dlp + ffmpeg — download and mux mp4

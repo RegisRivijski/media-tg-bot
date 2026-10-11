@@ -15,7 +15,7 @@ module.exports = {
     apiToken: process.env.MEDIA_TG_BOT_API_TOKEN,
   },
   telegramBotApi: {
-    protocol: process.env.TELEGRAM_BOT_API_PROTOCOL || 'http:',
+    protocol: process.env.TELEGRAM_BOT_API_PROTOCOL,
     host: process.env.TELEGRAM_BOT_API_HOST,
     port: process.env.TELEGRAM_BOT_API_PORT,
   },

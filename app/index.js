@@ -8,10 +8,11 @@ const { registerBotCommands } = require('./helpers/telegramCommandsHelper');
 const { cleanupDownloadRoot } = require('./helpers/ytdlpHelper');
 
 function buildTelegramApiRoot() {
-  if (!config.telegramBotApi.host || !config.telegramBotApi.port) {
+  const { protocol, host, port } = config.telegramBotApi;
+  if (!protocol || !host || !port) {
     return undefined;
   }
-  return `${config.telegramBotApi.protocol}//${config.telegramBotApi.host}:${config.telegramBotApi.port}`;
+  return `${protocol}//${host}:${port}`;
 }
 
 function createBot(apiRoot) {
