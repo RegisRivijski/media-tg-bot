@@ -146,6 +146,7 @@ async function probeMedia(url, platform) {
       ...extraExtractArgs(),
       playlistArg(platform),
       ...extraCookieArgs(),
+      '--',
       url,
     ], { timeoutMs: PROBE_TIMEOUT_MS }));
   } catch (error) {
@@ -239,6 +240,7 @@ async function downloadMedia({ url, platform, jobDir, height, language, audio, i
       '-o', output,
       ...(imagesOnly ? ['-o', `thumbnail:${output}`] : []),
       ...extraCookieArgs(),
+      '--',
       url,
     ], { timeoutMs: DOWNLOAD_TIMEOUT_MS });
   } catch (error) {
