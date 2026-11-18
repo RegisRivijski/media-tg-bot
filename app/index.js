@@ -35,7 +35,11 @@ function printStartupTable(apiRoot) {
 function listenForShutdown(bot) {
   const shutdown = (signal) => {
     cleanupDownloadRoot();
-    bot.stop(signal);
+    try {
+      bot.stop(signal);
+    } catch (error) {
+      console.warn('[shutdown]', error.message);
+    }
     process.exit(0);
   };
 
@@ -59,15 +63,18 @@ async function main() {
     console.error('[telegraf]', error.code || error.message);
   });
 
+  listenForShutdown(bot);
+
+  // With long polling, launch() resolves only after the bot stops,
+  // so startup work runs in the onLaunch callback.
   await bot.launch({
     allowedUpdates: ['message', 'callback_query'],
+  }, () => {
+    registerBotCommands(bot).catch((error) => {
+      console.warn('[telegram] setMyCommands failed:', error.message);
+    });
+    printStartupTable(apiRoot);
   });
-  await registerBotCommands(bot).catch((error) => {
-    console.warn('[telegram] setMyCommands failed:', error.message);
-  });
-
-  printStartupTable(apiRoot);
-  listenForShutdown(bot);
 
   return bot;
 }
