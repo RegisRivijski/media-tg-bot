@@ -112,6 +112,10 @@ function busyText() {
   return 'Уже качаю другое.';
 }
 
+function serverBusyText() {
+  return 'Сейчас много загрузок. Попробуй через пару минут.';
+}
+
 function notYourChoiceText() {
   return 'Это не твоя ссылка.';
 }
@@ -156,6 +160,7 @@ module.exports = {
   tooLongText,
   tooLargeText,
   busyText,
+  serverBusyText,
   notYourChoiceText,
   expiredText,
   cancelledText,

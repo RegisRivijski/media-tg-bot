@@ -1,9 +1,10 @@
 const crypto = require('crypto');
 
-const { SESSION_TTL_MS } = require('../constants/download');
+const { MAX_CONCURRENT_DOWNLOADS, SESSION_TTL_MS } = require('../constants/download');
 
 const sessions = new Map();
 const inflightChats = new Set();
+let activeDownloads = 0;
 
 function createSession(data) {
   const id = crypto.randomBytes(4).toString('hex');
@@ -52,6 +53,18 @@ function markChatFree(chatId) {
   inflightChats.delete(String(chatId));
 }
 
+function tryAcquireDownloadSlot() {
+  if (activeDownloads >= MAX_CONCURRENT_DOWNLOADS) {
+    return false;
+  }
+  activeDownloads += 1;
+  return true;
+}
+
+function releaseDownloadSlot() {
+  activeDownloads = Math.max(0, activeDownloads - 1);
+}
+
 module.exports = {
   createSession,
   getSession,
@@ -60,4 +73,6 @@ module.exports = {
   isChatBusy,
   markChatBusy,
   markChatFree,
+  tryAcquireDownloadSlot,
+  releaseDownloadSlot,
 };

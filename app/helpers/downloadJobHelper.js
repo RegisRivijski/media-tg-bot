@@ -90,7 +90,7 @@ async function handleDownloadError(ctx, status, error, replyToMessageId, extra =
   await ctx.reply(text, replyToOriginal(ctx, replyToMessageId)).catch(() => {});
 }
 
-async function runDownload(ctx, status, session) {
+async function runDownloadJob(ctx, status, session) {
   const isAudio = session.mediaKind === 'audio';
   await sendHelper.editStatus(ctx, status, copy.downloadingText(session.title), EMPTY_KEYBOARD);
   const jobDir = path.join(
@@ -164,6 +164,19 @@ async function runDownload(ctx, status, session) {
   } finally {
     stopAction();
     ytdlpHelper.removeDir(jobDir);
+  }
+}
+
+async function runDownload(ctx, status, session) {
+  if (!sessionHelper.tryAcquireDownloadSlot()) {
+    track(ctx, EVENTS.DOWNLOAD_FAIL, downloadProps(session, { reason: 'server_busy' }));
+    await sendHelper.editStatus(ctx, status, copy.serverBusyText(), EMPTY_KEYBOARD);
+    return;
+  }
+  try {
+    await runDownloadJob(ctx, status, session);
+  } finally {
+    sessionHelper.releaseDownloadSlot();
   }
 }
 
